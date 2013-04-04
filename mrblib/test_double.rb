@@ -1,18 +1,22 @@
 module Mocks
   module TestDouble
+#    attr_reader :mocks
     def initialize
-      @mocks = { }
+      $_mruby_mock_expectations ||= { }
     end
 
     def self.extended(instance)
       instance.instance_eval do
         def method_missing(name, *args, &block)
-          if @mocks[name]
-            @mocks[name][:invoked] = true
-            @mocks[name][:expected_args] = @mocks[name][:with] == args
-            @mocks[name][:count] += 1
+          if $_mruby_mock_expectations[self]
+            $_mruby_mock_expectations[self][name][:invoked] = true
 
-            return @mocks[name][:returns]
+            hash = { :expected_args => $_mruby_mock_expectations[self][name][:with] == args }
+            hash[:expected_args] = true if args.empty? && $_mruby_mock_expectations[self][name][:with].nil?
+            hash[:args] = args
+            $_mruby_mock_expectations[self][name][:history] << hash
+
+            return $_mruby_mock_expectations[self][name][:returns]
           else
             super
           end
@@ -21,19 +25,19 @@ module Mocks
     end
 
     def stubs(method)
-      @mocks ||= { }
-      @mocks[method] ||= Mocks::Expectation.new
+      $_mruby_mock_expectations ||= { }
+      $_mruby_mock_expectations[self] ||= { }
+      $_mruby_mock_expectations[self][method] ||= Mocks::Expectation.new
 
       unless self.class == Mocks::Mock
         self.class.class_eval do
           if method_defined?(method)
-            alias_method :"original_#{method}".to_sym, method
+            alias_method "original_#{method}".to_sym, method
             undef_method(method)
           end
         end
       end
-
-      @mocks[method].add_stub(method)
+      $_mruby_mock_expectations[self][method].add_stub(method)
 
     end
 
@@ -42,12 +46,15 @@ module Mocks
     end
 
     def method_missing(name, *args, &block)
-      if @mocks[name]
-        @mocks[name][:invoked] = true
-        @mocks[name][:expected_args] = @mocks[name][:with] == args
-        @mocks[name][:count] += 1
+      if $_mruby_mock_expectations[self]
+        $_mruby_mock_expectations[self][name][:invoked] = true
 
-        return @mocks[name][:returns]
+        hash = { :expected_args => $_mruby_mock_expectations[self][name][:with] == args }
+        hash[:expected_args] = true if args.empty? && $_mruby_mock_expectations[self][name][:with].nil?
+        hash[:args] = args
+        $_mruby_mock_expectations[self][name][:history] << hash
+
+        return $_mruby_mock_expectations[self][name][:returns]
       else
         super
       end
