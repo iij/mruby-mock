@@ -54,7 +54,7 @@ module Mocks
         hash[:args] = args
         $_mruby_mock_expectations[self][name][:history] << hash
 
-        hash[:expected_args] ? $_mruby_mock_expectations[self][name][:returns] : nil
+        hash[:expected_args] && $_mruby_mock_expectations[self][name][:returns]
       else
         super
       end
